@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>NYC Trees: 3D Data Viz</title>
+<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+<link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+    body { margin: 0; padding: 0; background-color: #000; font-family: 'Inter', sans-serif; overflow: hidden; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    
+    /* --- SIDEBAR --- */
+    #sidebar {
+        position: absolute; top: 20px; left: 20px; bottom: 40px; width: 260px;
+        background: rgba(5, 5, 5, 0.9); backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;
+        display: flex; flex-direction: column; color: #fff; z-index: 2;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    }
+    .sidebar-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    h1 { margin: 0; font-size: 15px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #fff; }
+    p.subtitle { margin: 5px 0 0 0; font-size: 10px; color: #888; font-family: 'Roboto Mono', monospace; }
+
+    /* Controls Area */
+    .controls-content { overflow-y: auto; flex-grow: 1; padding: 15px; }
+    .controls-content::-webkit-scrollbar { width: 4px; }
+    .controls-content::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+    .section-title { font-size: 10px; font-weight: 700; color: #555; text-transform: uppercase; margin: 15px 0 8px 0; letter-spacing: 1px; }
+
+    /* Checkbox Rows */
+    .layer-row {
+        display: flex; align-items: center; margin-bottom: 6px; cursor: pointer;
+        padding: 8px; border-radius: 4px; transition: background 0.2s; border: 1px solid transparent;
+    }
+    .layer-row:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+
+    /* Custom Checkbox UI */
+    input[type="checkbox"] { display: none; }
+    .checkbox-box {
+        width: 14px; height: 14px; border: 1px solid #444; border-radius: 3px; margin-right: 12px;
+        display: flex; align-items: center; justify-content: center; transition: all 0.2s; background: #111;
+    }
+    input:checked + .checkbox-box { background: #fff; border-color: #fff; }
+    input:checked + .checkbox-box::after { content: ''; width: 8px; height: 8px; background: #000; display: block; }
+    
+    .label-text { font-size: 12px; font-family: 'Roboto Mono', monospace; color: #aaa; }
+    input:checked ~ .label-text { color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.2); }
+    .color-dot { width: 8px; height: 8px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; box-shadow: 0 0 5px currentColor; }
+
+    /* --- VIEW CONTROLS --- */
+    #view-menu { position: absolute; top: 20px; right: 20px; z-index: 2; display: flex; gap: 8px; }
+    .view-btn {
+        background: rgba(0,0,0,0.8); border: 1px solid #333; color: #888; padding: 10px 18px; border-radius: 30px;
+        cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 11px;
+        text-transform: uppercase; letter-spacing: 1px; transition: all 0.3s;
+    }
+    .view-btn:hover { color: #fff; border-color: #666; }
+    .view-btn.active { background: #fff; color: #000; border-color: #fff; box-shadow: 0 0 20px rgba(255,255,255,0.4); }
+
+    /* --- POPUP --- */
+    .mapboxgl-popup-content { background: rgba(10,10,10,0.95); color: #fff; border: 1px solid #333; padding: 15px; font-family: 'Roboto Mono', monospace; min-width: 200px; }
+    .popup-label { color: #666; font-size: 9px; display: block; margin-bottom: 2px; letter-spacing: 0.5px; }
+    .popup-val { font-size: 13px; font-weight: bold; margin-bottom: 8px; display: block; color: #eee; }
+
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+    <div class="sidebar-header">
+        <h1>NYC Trees</h1>
+        <p class="subtitle">DATA EXPLORER</p>
+    </div>
+    
+    <div class="controls-content">
+        
+        <div class="section-title">Base Layers</div>
+        <label class="layer-row">
+            <input type="checkbox" id="toggle-water" checked onchange="toggleLayer('water', this.checked)">
+            <span class="checkbox-box"></span>
+            <span class="label-text">Water</span>
+        </label>
+        <label class="layer-row">
+            <input type="checkbox" id="toggle-parks" checked onchange="toggleLayer('parks', this.checked)">
+            <span class="checkbox-box"></span>
+            <span class="label-text">Parks</span>
+        </label>
+
+        <div class="section-title" style="margin-top: 25px;">Filter Species</div>
+        <label class="layer-row" style="background: rgba(255,255,255,0.05); margin-bottom: 10px;">
+            <input type="checkbox" id="toggle-all-trees" checked onchange="toggleAllTrees(this.checked)">
+            <span class="checkbox-box"></span>
+            <span class="label-text" style="color:#fff; font-weight:bold;">ALL SPECIES</span>
+        </label>
+
+        <div id="species-list"></div>
+    </div>
+</div>
+
+<div id="view-menu">
+    <button id="btn-2d" class="view-btn active">2D Flat</button>
+    <button id="btn-3d" class="view-btn">3D Perspective</button>
+</div>
+
+<div id="map"></div>
+
+<script>
+    mapboxgl.accessToken = 'pk.eyJ1IjoibW9saXM3MjYiLCJhIjoiY21oeHFrNGxhMDEzYzJrcHk0czJqejVlbCJ9.qLIfPy7V7FfgnEWg6CPQcA';
+
+    // COLORS (Neon / Data Viz Style)
+    const speciesConfig = [
+        { name: 'London planetree', color: '#00FF7F' }, // Spring Green
+        { name: 'Honeylocust', color: '#FFD700' },      // Gold
+        { name: 'Callery pear', color: '#00FFFF' },     // Cyan
+        { name: 'Pin oak', color: '#FF4500' },          // OrangeRed
+        { name: 'Norway maple', color: '#D500F9' },     // Purple
+        { name: 'Littleleaf linden', color: '#FF1744' },// Red
+        { name: 'Cherry', color: '#F48FB1' },           // Pink
+        { name: 'Ginkgo', color: '#C6FF00' },           // Lime
+        { name: 'Sophora', color: '#FFFFFF' },          // White
+        { name: 'Zelkova', color: '#2979FF' },          // Blue
+        { name: 'Other', color: '#555555' }             // Grey
+    ];
+
+    // GENERATE SIDEBAR
+    const listContainer = document.getElementById('species-list');
+    const speciesCheckboxes = [];
+    speciesConfig.forEach(sp => {
+        const label = document.createElement('label');
+        label.className = 'layer-row';
+        label.innerHTML = `
+            <input type="checkbox" class="species-cb" value="${sp.name}" checked onchange="updateTreeFilter()">
+            <span class="checkbox-box"></span>
+            <div class="color-dot" style="background:${sp.color}; color:${sp.color}"></div>
+            <span class="label-text">${sp.name}</span>
+        `;
+        listContainer.appendChild(label);
+        speciesCheckboxes.push(label.querySelector('input'));
+    });
+    // Prevent early clicks from throwing errors before the layer exists.
+    speciesCheckboxes.forEach(cb => cb.disabled = true);
+
+    // MAP SETUP
+    const manhattanBounds = [[-74.040, 40.690], [-73.900, 40.880]];
+    const map = new mapboxgl.Map({
+        container: 'map',
+        style: {
+            'version': 8,
+            'name': 'Dark Data',
+            'sources': {
+                'mapbox-streets': { 'type': 'vector', 'url': 'mapbox://mapbox.mapbox-streets-v8' },
+                'arboles-data': { 'type': 'vector', 'url': 'mapbox://molis726.3x0ev8mn' }
+            },
+            'layers': [ { 'id': 'background', 'type': 'background', 'paint': { 'background-color': '#000000' } } ]
+        },
+        bounds: manhattanBounds,
+        fitBoundsOptions: { padding: {top: 20, bottom: 20, left: 280, right: 20} },
+        pitch: 0,
+        bearing: 29
+    });
+
+    map.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
+
+    map.on('load', () => {
+
+        // 1. WATER (Navy)
+        map.addLayer({
+            'id': 'water', 'type': 'fill', 'source': 'mapbox-streets', 'source-layer': 'water',
+            'paint': { 'fill-color': '#0a111a', 'fill-opacity': 1 }
+        });
+
+        // 2. PARKS (Dark Forest)
+        map.addLayer({
+            'id': 'parks', 'type': 'fill', 'source': 'mapbox-streets', 'source-layer': 'landuse',
+            'filter': ['==', 'class', 'park'],
+            'paint': { 'fill-color': '#0f3312', 'fill-opacity': 0.6, 'fill-outline-color': '#1b5e20' }
+        });
+
+        // 3. TREES (Configured for transition)
+        const matchExpr = ['match', ['get', 'spc_common']];
+        speciesConfig.forEach(sp => {
+            if(sp.name !== 'Other') matchExpr.push(sp.name, sp.color);
+        });
+        matchExpr.push('#555555');
+
+        map.addLayer({
+            'id': 'trees',
+            'type': 'circle',
+            'source': 'arboles-data',
+            'source-layer': '2015_Street_Tree_Census_-_Tre-aqx165',
+            'paint': {
+                // Size: Small dust at low zoom, distinct dots at high zoom
+                'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 1.5, 13, 3, 16, 5, 22, 15],
+                'circle-color': matchExpr,
+                'circle-opacity': 0.8,
+                
+                // IMPORTANT: This starts as 'map' (flat) for 2D view
+                'circle-pitch-alignment': 'map', 
+                'circle-pitch-scale': 'map'
+            }
+        });
+
+        // HOVER POPUP
+        const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
+        map.on('mouseenter', 'trees', (e) => {
+            map.getCanvas().style.cursor = 'crosshair';
+            const props = e.features[0].properties;
+            const spName = props.spc_common || 'Other';
+            const colorObj = speciesConfig.find(s => s.name === spName) || { color: '#555' };
+
+            popup.setLngLat(e.features[0].geometry.coordinates)
+                .setHTML(`
+                    <div style="border-left: 2px solid ${colorObj.color}; padding-left: 10px;">
+                        <span class="popup-label">SPECIES</span>
+                        <span class="popup-val" style="color:${colorObj.color}">${spName}</span>
+                        <span class="popup-label">ADDRESS</span>
+                        <span class="popup-val">${props.address || 'N/A'}</span>
+                    </div>
+                `)
+                .addTo(map);
+        });
+        map.on('mouseleave', 'trees', () => {
+            map.getCanvas().style.cursor = '';
+            popup.remove();
+        });
+
+        // Enable controls now that the layer exists and seed the initial filter.
+        speciesCheckboxes.forEach(cb => cb.disabled = false);
+        updateTreeFilter();
+
+    });
+
+    // --- CONTROLLER LOGIC ---
+
+    function toggleLayer(id, isChecked) {
+        if(map.getLayer(id)) map.setLayoutProperty(id, 'visibility', isChecked ? 'visible' : 'none');
+    }
+
+    function toggleAllTrees(isChecked) {
+        if(!map.getLayer('trees')) return;
+        map.setLayoutProperty('trees', 'visibility', isChecked ? 'visible' : 'none');
+        document.querySelectorAll('.species-cb').forEach(cb => cb.disabled = !isChecked);
+    }
+
+    function updateTreeFilter() {
+        if(!map.getLayer('trees')) return; // Guard against calls before load
+        const checked = Array.from(document.querySelectorAll('.species-cb:checked')).map(cb => cb.value);
+        if (checked.length === 0) {
+            map.setFilter('trees', ['==', 'spc_common', 'IMPOSSIBLE']);
+            return;
+        }
+        const mainNames = speciesConfig.map(s => s.name).filter(n => n !== 'Other');
+        const filter = ['any'];
+        
+        // Add specific names
+        const specific = checked.filter(n => n !== 'Other');
+        if(specific.length > 0) filter.push(['in', 'spc_common', ...specific]);
+        
+        // Add "Others" logic
+        if(checked.includes('Other')) filter.push(['!', ['in', 'spc_common', ...mainNames]]);
+        
+        map.setFilter('trees', filter);
+    }
+
+    // --- 2D vs 3D LOGIC (THE MAGIC) ---
+    const btn2d = document.getElementById('btn-2d');
+    const btn3d = document.getElementById('btn-3d');
+
+    btn2d.addEventListener('click', () => {
+        btn2d.classList.add('active'); btn3d.classList.remove('active');
+        
+        // 1. Move Camera to Top View
+        map.fitBounds(manhattanBounds, { 
+            padding: {top: 20, bottom: 20, left: 280, right: 20}, 
+            pitch: 0, 
+            bearing: 29 
+        });
+
+        // 2. Make trees FLAT (Stickers)
+        if(map.getLayer('trees')) map.setPaintProperty('trees', 'circle-pitch-alignment', 'map');
+    });
+
+    btn3d.addEventListener('click', () => {
+        btn3d.classList.add('active'); btn2d.classList.remove('active');
+
+        // 1. Move Camera to Isometric View
+        map.flyTo({ 
+            center: [-73.9712, 40.7831], 
+            zoom: 14, 
+            pitch: 60, 
+            bearing: -15 
+        });
+
+        // 2. Make trees STANDING (Billboards/Orbs)
+        // 'viewport' makes the circle always face the camera, looking like a sphere in 3D
+        if(map.getLayer('trees')) map.setPaintProperty('trees', 'circle-pitch-alignment', 'viewport');
+    });
+
+</script>
+
+</body>
+</html>
