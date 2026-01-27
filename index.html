@@ -2,107 +2,158 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>NYC Trees: 3D Data Viz</title>
+<title>NYC Forestry: Zoom & Filter</title>
 <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
 <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-    body { margin: 0; padding: 0; background-color: #000; font-family: 'Inter', sans-serif; overflow: hidden; }
-    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    body { margin: 0; padding: 0; background-color: #000000; font-family: 'Inter', sans-serif; overflow: hidden; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; background-color: #000000; }
+
+    /* --- TOP BAR (BOROUGHS) --- */
+    #top-bar {
+        position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+        display: flex; gap: 8px; z-index: 20;
+        background: rgba(12, 12, 12, 0.85); padding: 5px 10px; border-radius: 30px;
+        backdrop-filter: blur(8px); border: 1px solid #333; overflow-x: auto; max-width: 95%;
+        scrollbar-width: none;
+    }
+    #top-bar::-webkit-scrollbar { display: none; }
     
+    .b-btn {
+        background: transparent; border: none; color: #aaa;
+        padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 11px; font-weight: 600;
+        transition: 0.2s; white-space: nowrap;
+    }
+    .b-btn:hover { color: white; background: #333; }
+    .b-btn.active { background: #00e676; color: black; box-shadow: 0 0 12px rgba(0,230,118,0.3); }
+    
+    .iso-btn { background: #222; color: #ccc; border: 1px solid #444; }
+    .iso-btn:hover { background: #333; color: white; }
+    .iso-btn.active { background: #00b0ff; color: white; border-color: #00b0ff; box-shadow: 0 0 12px rgba(0,176,255,0.4); }
+
     /* --- SIDEBAR --- */
     #sidebar {
-        position: absolute; top: 20px; left: 20px; bottom: 40px; width: 260px;
-        background: rgba(5, 5, 5, 0.9); backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;
-        display: flex; flex-direction: column; color: #fff; z-index: 2;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        position: absolute; top: 80px; left: 20px; width: 320px; bottom: 30px;
+        background: rgba(12, 12, 12, 0.95); backdrop-filter: blur(10px);
+        color: white; padding: 0; border-radius: 12px; border: 1px solid #252525;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.9); z-index: 10;
+        display: flex; flex-direction: column; overflow: hidden;
     }
-    .sidebar-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-    h1 { margin: 0; font-size: 15px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #fff; }
-    p.subtitle { margin: 5px 0 0 0; font-size: 10px; color: #888; font-family: 'Roboto Mono', monospace; }
 
-    /* Controls Area */
-    .controls-content { overflow-y: auto; flex-grow: 1; padding: 15px; }
-    .controls-content::-webkit-scrollbar { width: 4px; }
-    .controls-content::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+    .header { padding: 20px; border-bottom: 1px solid #252525; flex-shrink: 0; }
+    h2 { margin: 0; font-size: 18px; font-weight: 700; color: #fff; }
+    p.sub { margin: 5px 0 0; font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
 
-    .section-title { font-size: 10px; font-weight: 700; color: #555; text-transform: uppercase; margin: 15px 0 8px 0; letter-spacing: 1px; }
+    /* --- LAYERS UI --- */
+    .layer-group { border-bottom: 1px solid #252525; }
+    .layer-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; cursor: pointer; transition: 0.2s; }
+    .layer-header:hover { background: rgba(255,255,255,0.05); }
+    .layer-title { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .arrow { font-size: 10px; color: #666; transition: 0.3s; }
+    .arrow.rotated { transform: rotate(180deg); }
 
-    /* Checkbox Rows */
-    .layer-row {
-        display: flex; align-items: center; margin-bottom: 6px; cursor: pointer;
-        padding: 8px; border-radius: 4px; transition: background 0.2s; border: 1px solid transparent;
-    }
-    .layer-row:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+    .toggle { position: relative; display: inline-block; width: 32px; height: 18px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: #00e676; }
+    input:checked + .slider:before { transform: translateX(14px); }
 
-    /* Custom Checkbox UI */
-    input[type="checkbox"] { display: none; }
-    .checkbox-box {
-        width: 14px; height: 14px; border: 1px solid #444; border-radius: 3px; margin-right: 12px;
-        display: flex; align-items: center; justify-content: center; transition: all 0.2s; background: #111;
-    }
-    input:checked + .checkbox-box { background: #fff; border-color: #fff; }
-    input:checked + .checkbox-box::after { content: ''; width: 8px; height: 8px; background: #000; display: block; }
+    #tree-content { display: block; padding: 0; background: #0a0a0a; max-height: 60vh; overflow-y: auto; border-top: 1px solid #222; }
+    #tree-content.collapsed { display: none; }
+
+    .search-container { padding: 15px 20px 10px; position: sticky; top: 0; background: #0a0a0a; z-index: 5; }
+    .search-input { width: 100%; box-sizing: border-box; background: #1a1a1a; border: 1px solid #333; color: white; padding: 8px 12px; border-radius: 6px; font-family: 'Inter'; font-size: 12px; outline: none; transition: 0.2s; }
+    .search-input:focus { border-color: #00e676; }
+
+    .filter-tools { padding: 0 20px 10px; display: flex; gap: 10px; }
+    .mini-btn { font-size: 10px; background: #222; border: 1px solid #333; color: #ccc; padding: 4px 8px; border-radius: 4px; cursor: pointer; }
+    .mini-btn:hover { background: #333; color: white; }
+
+    .legend-container { padding: 0 20px 20px; }
+    .chip-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #1a1a1a; border: 1px solid #333; border-radius: 20px; font-size: 11px; color: #888; cursor: pointer; transition: all 0.2s ease; user-select: none; }
+    .chip:hover { background: #252525; color: #ddd; transform: translateY(-1px); }
+    .chip.active { background: #2a2a2a; color: #fff; border-color: #555; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+    .chip-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
     
-    .label-text { font-size: 12px; font-family: 'Roboto Mono', monospace; color: #aaa; }
-    input:checked ~ .label-text { color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.2); }
-    .color-dot { width: 8px; height: 8px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; box-shadow: 0 0 5px currentColor; }
-
-    /* --- VIEW CONTROLS --- */
-    #view-menu { position: absolute; top: 20px; right: 20px; z-index: 2; display: flex; gap: 8px; }
-    .view-btn {
-        background: rgba(0,0,0,0.8); border: 1px solid #333; color: #888; padding: 10px 18px; border-radius: 30px;
-        cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 11px;
-        text-transform: uppercase; letter-spacing: 1px; transition: all 0.3s;
-    }
-    .view-btn:hover { color: #fff; border-color: #666; }
-    .view-btn.active { background: #fff; color: #000; border-color: #fff; box-shadow: 0 0 20px rgba(255,255,255,0.4); }
-
     /* --- POPUP --- */
-    .mapboxgl-popup-content { background: rgba(10,10,10,0.95); color: #fff; border: 1px solid #333; padding: 15px; font-family: 'Roboto Mono', monospace; min-width: 200px; }
-    .popup-label { color: #666; font-size: 9px; display: block; margin-bottom: 2px; letter-spacing: 0.5px; }
-    .popup-val { font-size: 13px; font-weight: bold; margin-bottom: 8px; display: block; color: #eee; }
-
+    .mapboxgl-popup { max-width: 360px !important; z-index: 50; }
+    .mapboxgl-popup-content { background: #121212; color: #eee; border: 1px solid #333; border-radius: 12px; padding: 0; overflow: hidden; box-shadow: 0 20px 60px black; }
+    .popup-img-header { height: 160px; background-size: cover; background-position: center; position: relative; }
+    .photo-credit { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.6); color: white; font-size: 9px; padding: 3px 8px; border-radius: 10px; backdrop-filter: blur(2px); }
+    .popup-body { padding: 20px; }
+    .popup-title { font-size: 22px; font-weight: 700; color:#fff; font-style: italic; margin-bottom: 8px; line-height: 1.1; }
+    .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+    .data-box { background: #1a1a1a; padding: 10px; border-radius: 6px; border: 1px solid #2a2a2a; text-align: left; display: flex; justify-content: space-between; align-items: center; }
+    .data-label { font-size: 9px; color: #666; text-transform: uppercase; font-weight: 700; }
+    .data-value { font-size: 13px; font-weight: 600; color: #fff; }
+    .address-box { font-size: 11px; color: #999; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;}
+    .leaf-specimen { display: flex; align-items: center; gap: 15px; background: #f0f0f0; padding: 10px; border-radius: 8px; margin-bottom: 16px; }
+    .leaf-img { width: 45px; height: 45px; object-fit: contain; mix-blend-mode: multiply; }
+    .leaf-info span { display: block; color: #222; }
+    .btn-row { display: flex; gap: 10px; }
+    .btn { flex: 1; text-align: center; padding: 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; text-decoration: none; color: white; transition: 0.2s;}
+    .btn-upload { background: #00e676; color: #000; }
+    .btn-wiki { background: #333; }
+    .mapboxgl-popup-close-button { color: white; font-size: 24px; padding: 5px 12px; z-index: 10; }
 </style>
 </head>
 <body>
 
-<div id="sidebar">
-    <div class="sidebar-header">
-        <h1>NYC Trees</h1>
-        <p class="subtitle">DATA EXPLORER</p>
-    </div>
-    
-    <div class="controls-content">
-        
-        <div class="section-title">Base Layers</div>
-        <label class="layer-row">
-            <input type="checkbox" id="toggle-water" checked onchange="toggleLayer('water', this.checked)">
-            <span class="checkbox-box"></span>
-            <span class="label-text">Water</span>
-        </label>
-        <label class="layer-row">
-            <input type="checkbox" id="toggle-parks" checked onchange="toggleLayer('parks', this.checked)">
-            <span class="checkbox-box"></span>
-            <span class="label-text">Parks</span>
-        </label>
-
-        <div class="section-title" style="margin-top: 25px;">Filter Species</div>
-        <label class="layer-row" style="background: rgba(255,255,255,0.05); margin-bottom: 10px;">
-            <input type="checkbox" id="toggle-all-trees" checked onchange="toggleAllTrees(this.checked)">
-            <span class="checkbox-box"></span>
-            <span class="label-text" style="color:#fff; font-weight:bold;">ALL SPECIES</span>
-        </label>
-
-        <div id="species-list"></div>
-    </div>
+<div id="top-bar">
+    <button class="b-btn active" onclick="setBorough('All', this)">NYC All</button>
+    <button class="b-btn" onclick="setBorough('Manhattan', this)">Manhattan</button>
+    <button class="b-btn" onclick="setBorough('Brooklyn', this)">Brooklyn</button>
+    <button class="b-btn" onclick="setBorough('Queens', this)">Queens</button>
+    <button class="b-btn" onclick="setBorough('Bronx', this)">Bronx</button>
+    <button class="b-btn" onclick="setBorough('Staten Island', this)">Staten Island</button>
+    <button class="b-btn iso-btn" onclick="toggleIsometric(this)" style="margin-left: 10px;">📐 3D View</button>
 </div>
 
-<div id="view-menu">
-    <button id="btn-2d" class="view-btn active">2D Flat</button>
-    <button id="btn-3d" class="view-btn">3D Perspective</button>
+<div id="sidebar">
+    <div class="header">
+        <h2>NYC Forestry Map</h2>
+        <p class="sub">Data Explorer</p>
+    </div>
+    
+    <div class="layer-group">
+        <div class="layer-header">
+            <div class="layer-title" onclick="toggleTreeAccordion()">
+                <span class="arrow rotated" id="tree-arrow">▼</span> Trees Layer
+            </div>
+            <label class="toggle">
+                <input type="checkbox" checked id="chk-trees-master" onchange="toggleMasterTreeLayer()">
+                <span class="slider"></span>
+            </label>
+        </div>
+        <div id="tree-content">
+            <div class="search-container">
+                <input type="text" id="species-search" class="search-input" placeholder="Search species (e.g. Oak)..." onkeyup="filterChips()">
+            </div>
+            <div class="filter-tools">
+                <button class="mini-btn" onclick="toggleAll(true)">Select All</button>
+                <button class="mini-btn" onclick="toggleAll(false)">Clear</button>
+            </div>
+            <div class="legend-container">
+                <div class="chip-grid" id="chip-container"></div>
+            </div>
+        </div>
+    </div>
+    <div class="layer-group">
+        <div class="layer-header">
+            <div class="layer-title">Parks Layer</div>
+            <label class="toggle"><input type="checkbox" id="chk-parks"><span class="slider"></span></label>
+        </div>
+    </div>
+    <div class="layer-group" style="border-bottom: none;">
+        <div class="layer-header">
+            <div class="layer-title">Water Layer</div>
+            <label class="toggle"><input type="checkbox" id="chk-water"><span class="slider"></span></label>
+        </div>
+    </div>
 </div>
 
 <div id="map"></div>
@@ -110,196 +161,336 @@
 <script>
     mapboxgl.accessToken = 'pk.eyJ1IjoibW9saXM3MjYiLCJhIjoiY21oeHFrNGxhMDEzYzJrcHk0czJqejVlbCJ9.qLIfPy7V7FfgnEWg6CPQcA';
 
-    // COLORS (Neon / Data Viz Style)
-    const speciesConfig = [
-        { name: 'London planetree', color: '#00FF7F' }, // Spring Green
-        { name: 'Honeylocust', color: '#FFD700' },      // Gold
-        { name: 'Callery pear', color: '#00FFFF' },     // Cyan
-        { name: 'Pin oak', color: '#FF4500' },          // OrangeRed
-        { name: 'Norway maple', color: '#D500F9' },     // Purple
-        { name: 'Littleleaf linden', color: '#FF1744' },// Red
-        { name: 'Cherry', color: '#F48FB1' },           // Pink
-        { name: 'Ginkgo', color: '#C6FF00' },           // Lime
-        { name: 'Sophora', color: '#FFFFFF' },          // White
-        { name: 'Zelkova', color: '#2979FF' },          // Blue
-        { name: 'Other', color: '#555555' }             // Grey
+    const TILESET_ID = 'molis726.440hoo1z';
+    const LAYER_NAME = 'Forestry_Tree_Points-81mjz0';
+    const COL = { SPECIES: 'GenusSpecies', DBH: 'DBH', HEALTH: 'TPCondition', BOROUGH: 'boroname' };
+
+    const treeCatalog = [
+        { label: 'Platanus', keyword: 'Platanus', color: '#00e676' },
+        { label: 'Acer (Maple)', keyword: 'Acer', color: '#ff3d00' },
+        { label: 'Quercus (Oak)', keyword: 'Quercus', color: '#d50000' },
+        { label: 'Gleditsia', keyword: 'Gleditsia', color: '#64dd17' },
+        { label: 'Tilia (Linden)', keyword: 'Tilia', color: '#00b0ff' },
+        { label: 'Pyrus (Pear)', keyword: 'Pyrus', color: '#aa00ff' },
+        { label: 'Prunus (Cherry)', keyword: 'Prunus', color: '#c51162' },
+        { label: 'Zelkova', keyword: 'Zelkova', color: '#2962ff' },
+        { label: 'Ginkgo', keyword: 'Ginkgo', color: '#ffd600' },
+        { label: 'Fraxinus (Ash)', keyword: 'Fraxinus', color: '#795548' },
+        { label: 'Liquidambar', keyword: 'Liquidambar', color: '#f06292' },
+        { label: 'Ulmus (Elm)', keyword: 'Ulmus', color: '#8d6e63' },
+        { label: 'Styphnolobium', keyword: 'Styphnolobium', color: '#6200ea' },
+        { label: 'Pinus (Pine)', keyword: 'Pinus', color: '#1b5e20' },
+        { label: 'Metasequoia', keyword: 'Metasequoia', color: '#e65100' },
+        { label: 'Magnolia', keyword: 'Magnolia', color: '#f48fb1' },
+        { label: 'Cornus', keyword: 'Cornus', color: '#ce93d8' },
+        { label: 'Liriodendron', keyword: 'Liriodendron', color: '#aeea00' },
+        { label: 'Morus', keyword: 'Morus', color: '#9c27b0' },
+        { label: 'Celtis', keyword: 'Celtis', color: '#afb42b' },
+        { label: 'Fagus', keyword: 'Fagus', color: '#5d4037' },
+        { label: 'Betula', keyword: 'Betula', color: '#ffe082' },
+        { label: 'Salix', keyword: 'Salix', color: '#827717' },
+        { label: 'Aesculus', keyword: 'Aesculus', color: '#ffab00' }
     ];
 
-    // GENERATE SIDEBAR
-    const listContainer = document.getElementById('species-list');
-    const speciesCheckboxes = [];
-    speciesConfig.forEach(sp => {
-        const label = document.createElement('label');
-        label.className = 'layer-row';
-        label.innerHTML = `
-            <input type="checkbox" class="species-cb" value="${sp.name}" checked onchange="updateTreeFilter()">
-            <span class="checkbox-box"></span>
-            <div class="color-dot" style="background:${sp.color}; color:${sp.color}"></div>
-            <span class="label-text">${sp.name}</span>
-        `;
-        listContainer.appendChild(label);
-        speciesCheckboxes.push(label.querySelector('input'));
-    });
-    // Prevent early clicks from throwing errors before the layer exists.
-    speciesCheckboxes.forEach(cb => cb.disabled = true);
+    const leafImages = {
+        'Acer': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Acer_pseudoplatanus_leaf_2.jpg/240px-Acer_pseudoplatanus_leaf_2.jpg',
+        'Quercus': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Quercus_robur_leaf_01.jpg/240px-Quercus_robur_leaf_01.jpg',
+        'Platanus': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/Platanus_occidentalis_1.jpg/240px-Platanus_occidentalis_1.jpg',
+        'Ginkgo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Ginkgo_biloba_Scanned_Leaf.jpg/240px-Ginkgo_biloba_Scanned_Leaf.jpg',
+        'Gleditsia': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/73/Gleditsia_triacanthos_leaf.jpg/240px-Gleditsia_triacanthos_leaf.jpg',
+        'Tilia': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Tilia_cordata_Leaf.jpg/240px-Tilia_cordata_Leaf.jpg',
+        'Pinus': 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Pinus_strobus_Needles_Closeup.jpg/240px-Pinus_strobus_Needles_Closeup.jpg',
+        'Prunus': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/Prunus_avium_leaf.jpg/240px-Prunus_avium_leaf.jpg',
+        'Pyrus': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Pyrus_communis_leaf.jpg/240px-Pyrus_communis_leaf.jpg',
+        'Zelkova': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Zelkova_serrata_leaf.jpg/240px-Zelkova_serrata_leaf.jpg',
+        'Liquidambar': 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Liquidambar_styraciflua_leaf.jpg/240px-Liquidambar_styraciflua_leaf.jpg',
+        'DEFAULT': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Leaf_icon_03.svg/240px-Leaf_icon_03.svg.png'
+    };
 
-    // MAP SETUP
-    const manhattanBounds = [[-74.040, 40.690], [-73.900, 40.880]];
+    let activeGenera = treeCatalog.map(t => t.keyword);
+    let currentBorough = 'All';
+    let isTreeLayerOn = true;
+    let isIsometric = false;
+
     const map = new mapboxgl.Map({
         container: 'map',
-        style: {
-            'version': 8,
-            'name': 'Dark Data',
-            'sources': {
-                'mapbox-streets': { 'type': 'vector', 'url': 'mapbox://mapbox.mapbox-streets-v8' },
-                'arboles-data': { 'type': 'vector', 'url': 'mapbox://molis726.3x0ev8mn' }
-            },
-            'layers': [ { 'id': 'background', 'type': 'background', 'paint': { 'background-color': '#000000' } } ]
-        },
-        bounds: manhattanBounds,
-        fitBoundsOptions: { padding: {top: 20, bottom: 20, left: 280, right: 20} },
-        pitch: 0,
-        bearing: 29
+        style: 'mapbox://styles/mapbox/dark-v11',
+        center: [-73.970, 40.782], zoom: 11, pitch: 0, bearing: 0
     });
-
     map.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
 
     map.on('load', () => {
+        // --- 1. GENERATE "STICK" ICON ---
+        const canvas = document.createElement('canvas');
+        canvas.width = 20; canvas.height = 80;
+        const ctx = canvas.getContext('2d');
+        const grd = ctx.createLinearGradient(0, 0, 20, 0);
+        grd.addColorStop(0, "rgba(255,255,255,0.7)");
+        grd.addColorStop(0.5, "rgba(255,255,255,1)");
+        grd.addColorStop(1, "rgba(255,255,255,0.7)");
+        ctx.fillStyle = grd;
+        ctx.fillRect(0, 0, 20, 80);
+        map.addImage('tree-stick', { width: 20, height: 80, data: ctx.getImageData(0,0,20,80).data }, { sdf: true });
 
-        // 1. WATER (Navy)
-        map.addLayer({
-            'id': 'water', 'type': 'fill', 'source': 'mapbox-streets', 'source-layer': 'water',
-            'paint': { 'fill-color': '#0a111a', 'fill-opacity': 1 }
+        // --- 2. HIDE BASE MAP ---
+        map.getStyle().layers.forEach(l => map.setLayoutProperty(l.id, 'visibility', 'none'));
+
+        // --- 3. ADD LAYERS ---
+        map.addSource('nyc-forestry', { type: 'vector', url: 'mapbox://' + TILESET_ID });
+        map.addLayer({ 'id': 'custom-parks', 'type': 'fill', 'source': 'composite', 'source-layer': 'landuse', 'filter': ['==', 'class', 'park'], 'paint': { 'fill-color': '#1b5e20', 'fill-opacity': 0.3 }, 'layout': { 'visibility': 'none' } });
+        map.addLayer({ 'id': 'custom-water', 'type': 'fill', 'source': 'composite', 'source-layer': 'water', 'paint': { 'fill-color': '#01579b', 'fill-opacity': 0.4 }, 'layout': { 'visibility': 'none' } });
+
+        const colorExpr = ['case'];
+        treeCatalog.forEach(t => {
+            colorExpr.push(['in', t.keyword, ['get', COL.SPECIES]]);
+            colorExpr.push(t.color);
         });
-
-        // 2. PARKS (Dark Forest)
-        map.addLayer({
-            'id': 'parks', 'type': 'fill', 'source': 'mapbox-streets', 'source-layer': 'landuse',
-            'filter': ['==', 'class', 'park'],
-            'paint': { 'fill-color': '#0f3312', 'fill-opacity': 0.6, 'fill-outline-color': '#1b5e20' }
-        });
-
-        // 3. TREES (Configured for transition)
-        const matchExpr = ['match', ['get', 'spc_common']];
-        speciesConfig.forEach(sp => {
-            if(sp.name !== 'Other') matchExpr.push(sp.name, sp.color);
-        });
-        matchExpr.push('#555555');
+        colorExpr.push('#555');
 
         map.addLayer({
-            'id': 'trees',
+            'id': 'trees-points',
             'type': 'circle',
-            'source': 'arboles-data',
-            'source-layer': '2015_Street_Tree_Census_-_Tre-aqx165',
+            'source': 'nyc-forestry',
+            'source-layer': LAYER_NAME,
             'paint': {
-                // Size: Small dust at low zoom, distinct dots at high zoom
-                'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 1.5, 13, 3, 16, 5, 22, 15],
-                'circle-color': matchExpr,
-                'circle-opacity': 0.8,
-                
-                // IMPORTANT: This starts as 'map' (flat) for 2D view
-                'circle-pitch-alignment': 'map', 
-                'circle-pitch-scale': 'map'
+                // Radius increases significantly at zoom 14
+                'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 1.5, 14, 3, 18, 9],
+                'circle-color': colorExpr,
+                'circle-opacity': 0.85
             }
         });
 
-        // HOVER POPUP
-        const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
-        map.on('mouseenter', 'trees', (e) => {
-            map.getCanvas().style.cursor = 'crosshair';
-            const props = e.features[0].properties;
-            const spName = props.spc_common || 'Other';
-            const colorObj = speciesConfig.find(s => s.name === spName) || { color: '#555' };
-
-            popup.setLngLat(e.features[0].geometry.coordinates)
-                .setHTML(`
-                    <div style="border-left: 2px solid ${colorObj.color}; padding-left: 10px;">
-                        <span class="popup-label">SPECIES</span>
-                        <span class="popup-val" style="color:${colorObj.color}">${spName}</span>
-                        <span class="popup-label">ADDRESS</span>
-                        <span class="popup-val">${props.address || 'N/A'}</span>
-                    </div>
-                `)
-                .addTo(map);
-        });
-        map.on('mouseleave', 'trees', () => {
-            map.getCanvas().style.cursor = '';
-            popup.remove();
+        map.addLayer({
+            'id': 'trees-sticks',
+            'type': 'symbol',
+            'source': 'nyc-forestry',
+            'source-layer': LAYER_NAME,
+            'layout': {
+                'visibility': 'none',
+                'icon-image': 'tree-stick',
+                'icon-allow-overlap': true,
+                'icon-anchor': 'bottom',
+                'icon-pitch-alignment': 'viewport',
+                'icon-size': ['interpolate', ['linear'], ['get', COL.DBH], 0, 0.1, 50, 1.5]
+            },
+            'paint': { 'icon-color': colorExpr, 'icon-opacity': 0.9 }
         });
 
-        // Enable controls now that the layer exists and seed the initial filter.
-        speciesCheckboxes.forEach(cb => cb.disabled = false);
-        updateTreeFilter();
-
+        buildChipGrid();
+        setupInteractions();
     });
 
-    // --- CONTROLLER LOGIC ---
+    function toggleIsometric(btn) {
+        isIsometric = !isIsometric;
+        btn.classList.toggle('active');
 
-    function toggleLayer(id, isChecked) {
-        if(map.getLayer(id)) map.setLayoutProperty(id, 'visibility', isChecked ? 'visible' : 'none');
-    }
-
-    function toggleAllTrees(isChecked) {
-        if(!map.getLayer('trees')) return;
-        map.setLayoutProperty('trees', 'visibility', isChecked ? 'visible' : 'none');
-        document.querySelectorAll('.species-cb').forEach(cb => cb.disabled = !isChecked);
-    }
-
-    function updateTreeFilter() {
-        if(!map.getLayer('trees')) return; // Guard against calls before load
-        const checked = Array.from(document.querySelectorAll('.species-cb:checked')).map(cb => cb.value);
-        if (checked.length === 0) {
-            map.setFilter('trees', ['==', 'spc_common', 'IMPOSSIBLE']);
-            return;
+        if (isIsometric) {
+            map.flyTo({ pitch: 60, bearing: -45, zoom: map.getZoom() < 13 ? 13 : map.getZoom() });
+            if (isTreeLayerOn) {
+                map.setLayoutProperty('trees-points', 'visibility', 'none');
+                map.setLayoutProperty('trees-sticks', 'visibility', 'visible');
+            }
+        } else {
+            map.flyTo({ pitch: 0, bearing: 0 });
+            if (isTreeLayerOn) {
+                map.setLayoutProperty('trees-points', 'visibility', 'visible');
+                map.setLayoutProperty('trees-sticks', 'visibility', 'none');
+            }
         }
-        const mainNames = speciesConfig.map(s => s.name).filter(n => n !== 'Other');
-        const filter = ['any'];
-        
-        // Add specific names
-        const specific = checked.filter(n => n !== 'Other');
-        if(specific.length > 0) filter.push(['in', 'spc_common', ...specific]);
-        
-        // Add "Others" logic
-        if(checked.includes('Other')) filter.push(['!', ['in', 'spc_common', ...mainNames]]);
-        
-        map.setFilter('trees', filter);
     }
 
-    // --- 2D vs 3D LOGIC (THE MAGIC) ---
-    const btn2d = document.getElementById('btn-2d');
-    const btn3d = document.getElementById('btn-3d');
+    function toggleMasterTreeLayer() {
+        const isChecked = document.getElementById('chk-trees-master').checked;
+        isTreeLayerOn = isChecked;
+        if (isIsometric) {
+             map.setLayoutProperty('trees-sticks', 'visibility', isChecked ? 'visible' : 'none');
+             map.setLayoutProperty('trees-points', 'visibility', 'none');
+        } else {
+             map.setLayoutProperty('trees-points', 'visibility', isChecked ? 'visible' : 'none');
+             map.setLayoutProperty('trees-sticks', 'visibility', 'none');
+        }
+        if (!isChecked) {
+            document.getElementById('tree-content').classList.add('collapsed');
+            document.getElementById('tree-arrow').classList.remove('rotated');
+        } else {
+             document.getElementById('tree-content').classList.remove('collapsed');
+             document.getElementById('tree-arrow').classList.add('rotated');
+        }
+    }
 
-    btn2d.addEventListener('click', () => {
-        btn2d.classList.add('active'); btn3d.classList.remove('active');
+    function setBorough(boro, btn) {
+        currentBorough = boro;
         
-        // 1. Move Camera to Top View
-        map.fitBounds(manhattanBounds, { 
-            padding: {top: 20, bottom: 20, left: 280, right: 20}, 
-            pitch: 0, 
-            bearing: 29 
+        // UI Update
+        document.querySelectorAll('.b-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // Strict Filter
+        applyMapFilters(); 
+
+        // ZOOM LOGIC: Zoom 14 ensures points are visible (radius 3px)
+        const targetZoom = 14; 
+        
+        const locations = {
+            'Manhattan': { center: [-73.97, 40.78], zoom: targetZoom },
+            'Brooklyn':  { center: [-73.95, 40.65], zoom: targetZoom },
+            'Queens':    { center: [-73.85, 40.73], zoom: targetZoom },
+            'Bronx':     { center: [-73.87, 40.85], zoom: targetZoom },
+            'Staten Island': { center: [-74.15, 40.57], zoom: targetZoom }
+        };
+
+        if(locations[boro]) {
+            map.flyTo({ 
+                center: locations[boro].center, 
+                zoom: locations[boro].zoom, 
+                pitch: isIsometric ? 60 : 0 
+            });
+        } else {
+            // 'All' resets to high view
+            map.flyTo({ 
+                center: [-73.97, 40.78], 
+                zoom: 11, 
+                pitch: isIsometric ? 60 : 0 
+            });
+        }
+    }
+
+    function applyMapFilters() {
+        if (!isTreeLayerOn) return; 
+        const filters = ['all']; 
+        if (currentBorough !== 'All') filters.push(['==', COL.BOROUGH, currentBorough]);
+        
+        if (activeGenera.length > 0) {
+            const speciesConditions = ['any'];
+            activeGenera.forEach(keyword => speciesConditions.push(['in', keyword, ['get', COL.SPECIES]]));
+            filters.push(speciesConditions);
+        } else {
+            filters.push(['==', COL.SPECIES, 'IMPOSSIBLE']); 
+        }
+
+        map.setFilter('trees-points', filters);
+        map.setFilter('trees-sticks', filters);
+    }
+
+    function filterChips() {
+        const query = document.getElementById('species-search').value.toLowerCase();
+        document.querySelectorAll('.chip').forEach(chip => {
+            chip.style.display = chip.innerText.toLowerCase().includes(query) ? 'flex' : 'none';
+        });
+    }
+
+    function buildChipGrid() {
+        const container = document.getElementById('chip-container');
+        container.innerHTML = '';
+        treeCatalog.forEach(t => {
+            const chip = document.createElement('div');
+            chip.className = 'chip active';
+            chip.setAttribute('data-key', t.keyword);
+            chip.onclick = () => toggleChip(t.keyword, chip);
+            chip.innerHTML = `<div class="chip-dot" style="background:${t.color}"></div><span>${t.label}</span>`;
+            container.appendChild(chip);
+        });
+    }
+
+    function toggleChip(keyword, element) {
+        if (activeGenera.includes(keyword)) {
+            activeGenera = activeGenera.filter(k => k !== keyword);
+            element.classList.remove('active');
+            element.style.opacity = "0.5";
+        } else {
+            activeGenera.push(keyword);
+            element.classList.add('active');
+            element.style.opacity = "1";
+        }
+        applyMapFilters();
+    }
+
+    function toggleAll(selectAll) {
+        const chips = document.querySelectorAll('.chip');
+        if (selectAll) {
+            activeGenera = treeCatalog.map(t => t.keyword);
+            chips.forEach(c => { c.classList.add('active'); c.style.opacity = "1"; });
+        } else {
+            activeGenera = [];
+            chips.forEach(c => { c.classList.remove('active'); c.style.opacity = "0.5"; });
+        }
+        applyMapFilters();
+    }
+
+    function getLeafImage(speciesName) {
+        for (const [genus, url] of Object.entries(leafImages)) {
+            if (speciesName.includes(genus)) return url;
+        }
+        return leafImages['DEFAULT'];
+    }
+
+    function setupInteractions() {
+        const layers = ['trees-points', 'trees-sticks'];
+        
+        layers.forEach(layerID => {
+            map.on('mouseenter', layerID, () => map.getCanvas().style.cursor = 'pointer');
+            map.on('mouseleave', layerID, () => map.getCanvas().style.cursor = '');
+
+            map.on('click', layerID, async (e) => {
+                if (!isTreeLayerOn) return;
+                const p = e.features[0].properties;
+                const coords = e.features[0].geometry.coordinates;
+                
+                const species = p[COL.SPECIES] || 'Unknown';
+                const dbh = p[COL.DBH] || 0;
+                const health = p[COL.HEALTH] || 'N/A';
+                const circumference = Math.round(dbh * 3.14);
+                const photoUrl = `https://source.unsplash.com/600x400/?tree,${species.split(' ')[0]}`;
+                const leafUrl = getLeafImage(species);
+
+                new mapboxgl.Popup({ closeButton: true, offset: [0, -20] })
+                    .setLngLat(coords)
+                    .setHTML(`
+                        <div class="popup-img-header" style="background-image: url('${photoUrl}')">
+                            <div class="photo-credit">Photo: Community / Unsplash</div>
+                        </div>
+                        <div class="popup-body">
+                            <div class="popup-title">${species}</div>
+                            <div class="address-box"><span>📍</span><span id="addr-real">Locating...</span></div>
+                            <div class="leaf-specimen">
+                                <img src="${leafUrl}" class="leaf-img">
+                                <div class="leaf-info">
+                                    <span style="font-size:10px; color:#888; text-transform:uppercase; font-weight:700">Foliage ID</span>
+                                    <span style="font-size:14px; font-weight:600; color:#000">Specimen View</span>
+                                </div>
+                            </div>
+                            <div class="data-grid">
+                                <div class="data-box"><span class="data-label">Health</span><span class="data-value" style="color:${health.includes('Good')?'#00e676':'#ffab00'}">${health}</span></div>
+                                <div class="data-box"><span class="data-label">Age</span><span class="data-value">${dbh > 0 ? '~'+Math.round(dbh*4)+'y' : '?'}</span></div>
+                                <div class="data-box"><span class="data-label">Diameter</span><span class="data-value">${dbh}"</span></div>
+                                <div class="data-box"><span class="data-label">Circumference</span><span class="data-value">${circumference}"</span></div>
+                            </div>
+                            <div class="btn-row">
+                                <button class="btn btn-upload">Upload Photo</button>
+                                <a href="https://en.wikipedia.org/wiki/${species.split(' ')[0]}" target="_blank" class="btn btn-wiki">Wiki</a>
+                            </div>
+                        </div>
+                    `)
+                    .addTo(map);
+
+                const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords[1]}&lon=${coords[0]}`;
+                try {
+                    const res = await fetch(url);
+                    const data = await res.json();
+                    let fullAddr = data.display_name.split(',')[0];
+                    if (data.address && data.address.house_number && (data.address.road || data.address.street)) {
+                        fullAddr = `${data.address.house_number} ${data.address.road || data.address.street}, ${data.address.suburb || 'NYC'}`;
+                    }
+                    document.getElementById('addr-real').innerText = fullAddr;
+                } catch (err) {
+                    document.getElementById('addr-real').innerText = `${coords[1].toFixed(4)}, ${coords[0].toFixed(4)}`;
+                }
+            });
         });
 
-        // 2. Make trees FLAT (Stickers)
-        if(map.getLayer('trees')) map.setPaintProperty('trees', 'circle-pitch-alignment', 'map');
-    });
-
-    btn3d.addEventListener('click', () => {
-        btn3d.classList.add('active'); btn2d.classList.remove('active');
-
-        // 1. Move Camera to Isometric View
-        map.flyTo({ 
-            center: [-73.9712, 40.7831], 
-            zoom: 14, 
-            pitch: 60, 
-            bearing: -15 
-        });
-
-        // 2. Make trees STANDING (Billboards/Orbs)
-        // 'viewport' makes the circle always face the camera, looking like a sphere in 3D
-        if(map.getLayer('trees')) map.setPaintProperty('trees', 'circle-pitch-alignment', 'viewport');
-    });
-
+        document.getElementById('chk-parks').addEventListener('change', e => map.setLayoutProperty('custom-parks', 'visibility', e.target.checked ? 'visible' : 'none'));
+        document.getElementById('chk-water').addEventListener('change', e => map.setLayoutProperty('custom-water', 'visibility', e.target.checked ? 'visible' : 'none'));
+    }
 </script>
-
 </body>
 </html>
