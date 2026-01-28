@@ -154,10 +154,16 @@
             <label class="toggle"><input type="checkbox" id="chk-water" checked><span class="slider"></span></label>
         </div>
     </div>
-    <div class="layer-group" style="border-bottom: none;">
+    <div class="layer-group">
         <div class="layer-header">
             <div class="layer-title">Streets Layer</div>
             <label class="toggle"><input type="checkbox" id="chk-streets" checked><span class="slider"></span></label>
+        </div>
+    </div>
+    <div class="layer-group" style="border-bottom: none;">
+        <div class="layer-header">
+            <div class="layer-title">Buildings Layer</div>
+            <label class="toggle"><input type="checkbox" id="chk-buildings" checked><span class="slider"></span></label>
         </div>
     </div>
 </div>
@@ -246,6 +252,7 @@
         map.addLayer({ 'id': 'custom-parks', 'type': 'fill', 'source': 'composite', 'source-layer': 'landuse', 'filter': ['==', 'class', 'park'], 'paint': { 'fill-color': '#1b5e20', 'fill-opacity': 0.3 }, 'layout': { 'visibility': 'visible' } });
         map.addLayer({ 'id': 'custom-water', 'type': 'fill', 'source': 'composite', 'source-layer': 'water', 'paint': { 'fill-color': '#01579b', 'fill-opacity': 0.4 }, 'layout': { 'visibility': 'visible' } });
         map.addLayer({ 'id': 'custom-streets', 'type': 'line', 'source': 'composite', 'source-layer': 'road', 'paint': { 'line-color': '#cccccc', 'line-width': ['interpolate', ['linear'], ['zoom'], 11, 0.5, 18, 2] }, 'layout': { 'visibility': 'visible', 'line-join': 'round', 'line-cap': 'round' } });
+        map.addLayer({ 'id': 'custom-buildings', 'type': 'fill', 'source': 'composite', 'source-layer': 'building', 'paint': { 'fill-color': '#d4cfc9', 'fill-opacity': 0.7, 'fill-outline-color': '#999999' }, 'layout': { 'visibility': 'visible' } });
 
         const colorExpr = ['case'];
         treeCatalog.forEach(t => {
@@ -498,6 +505,7 @@
         document.getElementById('chk-parks').addEventListener('change', e => map.setLayoutProperty('custom-parks', 'visibility', e.target.checked ? 'visible' : 'none'));
         document.getElementById('chk-water').addEventListener('change', e => map.setLayoutProperty('custom-water', 'visibility', e.target.checked ? 'visible' : 'none'));
         document.getElementById('chk-streets').addEventListener('change', e => map.setLayoutProperty('custom-streets', 'visibility', e.target.checked ? 'visible' : 'none'));
+        document.getElementById('chk-buildings').addEventListener('change', e => map.setLayoutProperty('custom-buildings', 'visibility', e.target.checked ? 'visible' : 'none'));
     }
 </script>
 </body>
