@@ -2,21 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>NYC Forestry: Zoom & Filter</title>
+<title>NYC Forestry: Dark Pencil Buildings</title>
 <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
 <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-    body { margin: 0; padding: 0; background-color: #f5f5f5; font-family: 'Inter', sans-serif; overflow: hidden; }
-    #map { position: absolute; top: 0; bottom: 0; width: 100%; background-color: #f5f5f5; }
+    /* --- ESTILO GENERAL: MODO CLARO / PAPEL --- */
+    body { margin: 0; padding: 0; background-color: #FDFCF6; font-family: 'Inter', sans-serif; overflow: hidden; color: #333; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; background-color: #FDFCF6; }
 
     /* --- TOP BAR (BOROUGHS) --- */
     #top-bar {
         position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
         display: flex; gap: 8px; z-index: 20;
-        background: rgba(255, 255, 255, 0.95); padding: 5px 10px; border-radius: 30px;
+        background: rgba(255, 255, 255, 0.9); padding: 5px 10px; border-radius: 30px;
         backdrop-filter: blur(8px); border: 1px solid #ddd; overflow-x: auto; max-width: 95%;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
         scrollbar-width: none;
     }
     #top-bar::-webkit-scrollbar { display: none; }
@@ -24,81 +26,88 @@
     .b-btn {
         background: transparent; border: none; color: #666;
         padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 11px; font-weight: 600;
-        transition: 0.2s; white-space: nowrap;
+        transition: 0.2s; white-space: nowrap; font-family: 'Inter';
     }
-    .b-btn:hover { color: #333; background: #e8e8e8; }
-    .b-btn.active { background: #00e676; color: #000; box-shadow: 0 0 12px rgba(0,230,118,0.3); }
+    .b-btn:hover { color: #000; background: #f0f0f0; }
+    .b-btn.active { background: #333; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
     
-    .iso-btn { background: #f0f0f0; color: #333; border: 1px solid #ccc; }
-    .iso-btn:hover { background: #e8e8e8; color: #000; }
-    .iso-btn.active { background: #00b0ff; color: white; border-color: #00b0ff; box-shadow: 0 0 12px rgba(0,176,255,0.4); }
+    .iso-btn { background: #eee; color: #555; border: 1px solid #ddd; }
+    .iso-btn:hover { background: #ddd; color: #000; }
+    .iso-btn.active { background: #2e7d32; color: white; border-color: #2e7d32; }
 
-    /* --- SIDEBAR --- */
+    /* --- SIDEBAR (BLANCO / ARQUITECTONICO) --- */
     #sidebar {
         position: absolute; top: 80px; left: 20px; width: 320px; bottom: 30px;
-        background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(10px);
-        color: #333; padding: 0; border-radius: 12px; border: 1px solid #ddd;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.1); z-index: 10;
+        background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
+        color: #333; padding: 0; border-radius: 12px; border: 1px solid #e0e0e0;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1); z-index: 10;
         display: flex; flex-direction: column; overflow: hidden;
     }
 
     .header { padding: 20px; border-bottom: 1px solid #eee; flex-shrink: 0; }
-    h2 { margin: 0; font-size: 18px; font-weight: 700; color: #222; }
-    p.sub { margin: 5px 0 0; font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
+    h2 { margin: 0; font-size: 18px; font-weight: 700; color: #222; letter-spacing: -0.5px; }
+    p.sub { margin: 5px 0 0; font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
 
     /* --- LAYERS UI --- */
     .layer-group { border-bottom: 1px solid #eee; }
     .layer-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; cursor: pointer; transition: 0.2s; }
-    .layer-header:hover { background: rgba(0,0,0,0.03); }
-    .layer-title { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; color: #333; }
+    .layer-header:hover { background: #f9f9f9; }
+    .layer-title { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; color: #444; }
     .arrow { font-size: 10px; color: #999; transition: 0.3s; }
     .arrow.rotated { transform: rotate(180deg); }
 
     .toggle { position: relative; display: inline-block; width: 32px; height: 18px; flex-shrink: 0; }
     .toggle input { opacity: 0; width: 0; height: 0; }
-    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
-    .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
-    input:checked + .slider { background-color: #00e676; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ddd; transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+    input:checked + .slider { background-color: #333; }
     input:checked + .slider:before { transform: translateX(14px); }
 
-    #tree-content { display: block; padding: 0; background: #fafafa; max-height: 60vh; overflow-y: auto; border-top: 1px solid #eee; }
+    #tree-content { display: block; padding: 0; background: #fff; max-height: 60vh; overflow-y: auto; border-top: 1px solid #eee; }
     #tree-content.collapsed { display: none; }
 
-    .search-container { padding: 15px 20px 10px; position: sticky; top: 0; background: #fafafa; z-index: 5; }
-    .search-input { width: 100%; box-sizing: border-box; background: white; border: 1px solid #ddd; color: #333; padding: 8px 12px; border-radius: 6px; font-family: 'Inter'; font-size: 12px; outline: none; transition: 0.2s; }
-    .search-input:focus { border-color: #00e676; }
+    .search-container { padding: 15px 20px 10px; position: sticky; top: 0; background: #fff; z-index: 5; border-bottom: 1px solid #f5f5f5; }
+    .search-input { width: 100%; box-sizing: border-box; background: #f7f7f7; border: 1px solid #e0e0e0; color: #333; padding: 8px 12px; border-radius: 6px; font-family: 'Inter'; font-size: 12px; outline: none; transition: 0.2s; }
+    .search-input:focus { border-color: #999; background: #fff; }
 
-    .filter-tools { padding: 0 20px 10px; display: flex; gap: 10px; }
-    .mini-btn { font-size: 10px; background: white; border: 1px solid #ddd; color: #666; padding: 4px 8px; border-radius: 4px; cursor: pointer; }
-    .mini-btn:hover { background: #f0f0f0; color: #333; }
+    .filter-tools { padding: 10px 20px; display: flex; gap: 10px; background: #fff; }
+    .mini-btn { font-size: 10px; background: #f0f0f0; border: 1px solid #ddd; color: #666; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; }
+    .mini-btn:hover { background: #e0e0e0; color: #333; }
 
-    .legend-container { padding: 0 20px 20px; }
+    .legend-container { padding: 0 20px 20px; background: #fff; }
     .chip-grid { display: flex; flex-wrap: wrap; gap: 6px; }
-    .chip { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: white; border: 1px solid #ddd; border-radius: 20px; font-size: 11px; color: #666; cursor: pointer; transition: all 0.2s ease; user-select: none; }
-    .chip:hover { background: #f8f8f8; color: #333; transform: translateY(-1px); }
-    .chip.active { background: #f0f0f0; color: #222; border-color: #999; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    
+    .chip { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #fff; border: 1px solid #e0e0e0; border-radius: 20px; font-size: 11px; color: #555; cursor: pointer; transition: all 0.2s ease; user-select: none; }
+    .chip:hover { background: #f5f5f5; color: #000; border-color: #ccc; }
+    .chip.active { background: #e8f5e9; color: #1b5e20; border-color: #a5d6a7; } 
     .chip-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
     
-    /* --- POPUP --- */
+    /* --- POPUP (ESTILO LIMPIO) --- */
     .mapboxgl-popup { max-width: 360px !important; z-index: 50; }
-    .mapboxgl-popup-content { background: #ffffff; color: #333; border: 1px solid #ddd; border-radius: 12px; padding: 0; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
+    .mapboxgl-popup-content { background: #fff; color: #333; border: 1px solid #ddd; border-radius: 12px; padding: 0; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
     .popup-img-header { height: 160px; background-size: cover; background-position: center; position: relative; }
-    .photo-credit { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.6); color: white; font-size: 9px; padding: 3px 8px; border-radius: 10px; backdrop-filter: blur(2px); }
+    .photo-credit { position: absolute; bottom: 8px; right: 8px; background: rgba(255,255,255,0.8); color: #333; font-size: 9px; padding: 3px 8px; border-radius: 10px; backdrop-filter: blur(2px); font-weight: 600; }
     .popup-body { padding: 20px; }
-    .popup-title { font-size: 22px; font-weight: 700; color: #222; font-style: italic; margin-bottom: 8px; line-height: 1.1; }
+    .popup-title { font-size: 22px; font-weight: 700; color: #222; font-style: italic; margin-bottom: 8px; line-height: 1.1; font-family: 'Times New Roman', serif; }
+    
     .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
-    .data-box { background: #f5f5f5; padding: 10px; border-radius: 6px; border: 1px solid #eee; text-align: left; display: flex; justify-content: space-between; align-items: center; }
-    .data-label { font-size: 9px; color: #999; text-transform: uppercase; font-weight: 700; }
-    .data-value { font-size: 13px; font-weight: 600; color: #222; }
+    .data-box { background: #f9f9f9; padding: 10px; border-radius: 6px; border: 1px solid #eee; text-align: left; display: flex; justify-content: space-between; align-items: center; }
+    .data-label { font-size: 9px; color: #888; text-transform: uppercase; font-weight: 700; }
+    .data-value { font-size: 13px; font-weight: 600; color: #333; }
+    
     .address-box { font-size: 11px; color: #666; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;}
-    .leaf-specimen { display: flex; align-items: center; gap: 15px; background: #f0f0f0; padding: 10px; border-radius: 8px; margin-bottom: 16px; }
-    .leaf-img { width: 45px; height: 45px; object-fit: contain; mix-blend-mode: multiply; }
-    .leaf-info span { display: block; color: #222; }
+    .leaf-specimen { display: flex; align-items: center; gap: 15px; background: #f4f4f4; padding: 10px; border-radius: 8px; margin-bottom: 16px; border: 1px solid #eee; }
+    .leaf-img { width: 45px; height: 45px; object-fit: contain; mix-blend-mode: multiply; filter: contrast(1.1); }
+    .leaf-info span { display: block; color: #444; }
+    
     .btn-row { display: flex; gap: 10px; }
     .btn { flex: 1; text-align: center; padding: 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; text-decoration: none; color: white; transition: 0.2s;}
-    .btn-upload { background: #00e676; color: #000; }
-    .btn-wiki { background: #666; }
-    .mapboxgl-popup-close-button { color: #333; font-size: 24px; padding: 5px 12px; z-index: 10; }
+    .btn-upload { background: #333; color: #fff; }
+    .btn-upload:hover { background: #000; }
+    .btn-wiki { background: #eee; color: #333; }
+    .btn-wiki:hover { background: #ddd; }
+    
+    .mapboxgl-popup-close-button { color: #fff; font-size: 24px; padding: 5px 12px; z-index: 10; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
 </style>
 </head>
 <body>
@@ -110,19 +119,19 @@
     <button class="b-btn" onclick="setBorough('Queens', this)">Queens</button>
     <button class="b-btn" onclick="setBorough('Bronx', this)">Bronx</button>
     <button class="b-btn" onclick="setBorough('Staten Island', this)">Staten Island</button>
-    <button class="b-btn iso-btn" onclick="toggleIsometric(this)" style="margin-left: 10px;">📐 3D View</button>
+    <button class="b-btn iso-btn" onclick="toggleIsometric(this)" style="margin-left: 10px;">3D View</button>
 </div>
 
 <div id="sidebar">
     <div class="header">
         <h2>NYC Forestry Map</h2>
-        <p class="sub">Data Explorer</p>
+        <p class="sub">Pencil & Architect Style</p>
     </div>
     
     <div class="layer-group">
         <div class="layer-header">
             <div class="layer-title" onclick="toggleTreeAccordion()">
-                <span class="arrow rotated" id="tree-arrow">▼</span> Trees Layer
+                <span class="arrow rotated" id="tree-arrow">▼</span> Trees (Nature)
             </div>
             <label class="toggle">
                 <input type="checkbox" checked id="chk-trees-master" onchange="toggleMasterTreeLayer()">
@@ -131,7 +140,7 @@
         </div>
         <div id="tree-content">
             <div class="search-container">
-                <input type="text" id="species-search" class="search-input" placeholder="Search species (e.g. Oak)..." onkeyup="filterChips()">
+                <input type="text" id="species-search" class="search-input" placeholder="Search species..." onkeyup="filterChips()">
             </div>
             <div class="filter-tools">
                 <button class="mini-btn" onclick="toggleAll(true)">Select All</button>
@@ -144,25 +153,19 @@
     </div>
     <div class="layer-group">
         <div class="layer-header">
-            <div class="layer-title">Parks Layer</div>
+            <div class="layer-title">Parks (Stippled)</div>
             <label class="toggle"><input type="checkbox" id="chk-parks" checked><span class="slider"></span></label>
         </div>
     </div>
     <div class="layer-group">
         <div class="layer-header">
-            <div class="layer-title">Water Layer</div>
+            <div class="layer-title">Water (Shaded)</div>
             <label class="toggle"><input type="checkbox" id="chk-water" checked><span class="slider"></span></label>
-        </div>
-    </div>
-    <div class="layer-group">
-        <div class="layer-header">
-            <div class="layer-title">Streets Layer</div>
-            <label class="toggle"><input type="checkbox" id="chk-streets" checked><span class="slider"></span></label>
         </div>
     </div>
     <div class="layer-group" style="border-bottom: none;">
         <div class="layer-header">
-            <div class="layer-title">Buildings Layer</div>
+            <div class="layer-title">Buildings (Dark Fill)</div>
             <label class="toggle"><input type="checkbox" id="chk-buildings" checked><span class="slider"></span></label>
         </div>
     </div>
@@ -178,30 +181,30 @@
     const COL = { SPECIES: 'GenusSpecies', DBH: 'DBH', HEALTH: 'TPCondition', BOROUGH: 'boroname' };
 
     const treeCatalog = [
-        { label: 'Platanus', keyword: 'Platanus', color: '#00e676' },
-        { label: 'Acer (Maple)', keyword: 'Acer', color: '#ff3d00' },
-        { label: 'Quercus (Oak)', keyword: 'Quercus', color: '#d50000' },
-        { label: 'Gleditsia', keyword: 'Gleditsia', color: '#64dd17' },
-        { label: 'Tilia (Linden)', keyword: 'Tilia', color: '#00b0ff' },
-        { label: 'Pyrus (Pear)', keyword: 'Pyrus', color: '#aa00ff' },
-        { label: 'Prunus (Cherry)', keyword: 'Prunus', color: '#c51162' },
-        { label: 'Zelkova', keyword: 'Zelkova', color: '#2962ff' },
-        { label: 'Ginkgo', keyword: 'Ginkgo', color: '#ffd600' },
-        { label: 'Fraxinus (Ash)', keyword: 'Fraxinus', color: '#795548' },
-        { label: 'Liquidambar', keyword: 'Liquidambar', color: '#f06292' },
-        { label: 'Ulmus (Elm)', keyword: 'Ulmus', color: '#8d6e63' },
-        { label: 'Styphnolobium', keyword: 'Styphnolobium', color: '#6200ea' },
-        { label: 'Pinus (Pine)', keyword: 'Pinus', color: '#1b5e20' },
-        { label: 'Metasequoia', keyword: 'Metasequoia', color: '#e65100' },
-        { label: 'Magnolia', keyword: 'Magnolia', color: '#f48fb1' },
-        { label: 'Cornus', keyword: 'Cornus', color: '#ce93d8' },
-        { label: 'Liriodendron', keyword: 'Liriodendron', color: '#aeea00' },
-        { label: 'Morus', keyword: 'Morus', color: '#9c27b0' },
-        { label: 'Celtis', keyword: 'Celtis', color: '#afb42b' },
-        { label: 'Fagus', keyword: 'Fagus', color: '#5d4037' },
-        { label: 'Betula', keyword: 'Betula', color: '#ffe082' },
-        { label: 'Salix', keyword: 'Salix', color: '#827717' },
-        { label: 'Aesculus', keyword: 'Aesculus', color: '#ffab00' }
+        { label: 'Platanus', keyword: 'Platanus', color: '#8cb369' }, 
+        { label: 'Acer (Maple)', keyword: 'Acer', color: '#2d6a4f' }, 
+        { label: 'Quercus (Oak)', keyword: 'Quercus', color: '#40916c' }, 
+        { label: 'Gleditsia', keyword: 'Gleditsia', color: '#b7e4c7' }, 
+        { label: 'Tilia (Linden)', keyword: 'Tilia', color: '#52b788' }, 
+        { label: 'Pyrus (Pear)', keyword: 'Pyrus', color: '#a8d5ba' }, 
+        { label: 'Prunus (Cherry)', keyword: 'Prunus', color: '#95d5b2' }, 
+        { label: 'Zelkova', keyword: 'Zelkova', color: '#1b4332' }, 
+        { label: 'Ginkgo', keyword: 'Ginkgo', color: '#d9ed92' }, 
+        { label: 'Fraxinus (Ash)', keyword: 'Fraxinus', color: '#74c69d' }, 
+        { label: 'Liquidambar', keyword: 'Liquidambar', color: '#55a630' }, 
+        { label: 'Ulmus (Elm)', keyword: 'Ulmus', color: '#2b9348' }, 
+        { label: 'Styphnolobium', keyword: 'Styphnolobium', color: '#e9ff70' }, 
+        { label: 'Pinus (Pine)', keyword: 'Pinus', color: '#081c15' }, 
+        { label: 'Metasequoia', keyword: 'Metasequoia', color: '#80b918' }, 
+        { label: 'Magnolia', keyword: 'Magnolia', color: '#ccff33' }, 
+        { label: 'Cornus', keyword: 'Cornus', color: '#aacc00' }, 
+        { label: 'Liriodendron', keyword: 'Liriodendron', color: '#007f5f' }, 
+        { label: 'Morus', keyword: 'Morus', color: '#dddf00' }, 
+        { label: 'Celtis', keyword: 'Celtis', color: '#606c38' }, 
+        { label: 'Fagus', keyword: 'Fagus', color: '#283618' }, 
+        { label: 'Betula', keyword: 'Betula', color: '#fefae0' }, 
+        { label: 'Salix', keyword: 'Salix', color: '#dda15e' }, 
+        { label: 'Aesculus', keyword: 'Aesculus', color: '#bc4749' } 
     ];
 
     const leafImages = {
@@ -223,57 +226,168 @@
     let currentBorough = 'All';
     let isTreeLayerOn = true;
     let isIsometric = false;
+    let svgDataUrls = {}; // Para guardar los SVG como data URLs para los chips
 
+    // --- MAPA ESTILO PENCIL (Manual) ---
     const map = new mapboxgl.Map({
         container: 'map',
-        style: 'mapbox://styles/mapbox/light-v11',
+        style: {
+            "version": 8,
+            "name": "Pencil-Architect",
+            "sources": {
+                "composite": { "url": "mapbox://mapbox.mapbox-streets-v8", "type": "vector" },
+                "nyc-forestry": { "type": "vector", "url": "mapbox://" + TILESET_ID }
+            },
+            "layers": [
+                {
+                    "id": "background",
+                    "type": "background",
+                    "paint": { 
+                        "background-color": "#FDFCF6" // COLOR PAPEL / HUESO
+                    }
+                }
+            ]
+        },
         center: [-73.970, 40.782], zoom: 11, pitch: 0, bearing: 0
     });
     map.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
 
     map.on('load', () => {
-        // --- 1. GENERATE "STICK" ICON ---
+        // --- STICK ICON ---
         const canvas = document.createElement('canvas');
         canvas.width = 20; canvas.height = 80;
         const ctx = canvas.getContext('2d');
         const grd = ctx.createLinearGradient(0, 0, 20, 0);
-        grd.addColorStop(0, "rgba(100,100,100,0.7)");
-        grd.addColorStop(0.5, "rgba(80,80,80,1)");
-        grd.addColorStop(1, "rgba(100,100,100,0.7)");
+        grd.addColorStop(0, "rgba(80,120,80,0.7)");
+        grd.addColorStop(0.5, "rgba(100,150,100,1)");
+        grd.addColorStop(1, "rgba(80,120,80,0.7)");
         ctx.fillStyle = grd;
         ctx.fillRect(0, 0, 20, 80);
         map.addImage('tree-stick', { width: 20, height: 80, data: ctx.getImageData(0,0,20,80).data }, { sdf: true });
 
-        // --- 2. HIDE BASE MAP ---
-        map.getStyle().layers.forEach(l => map.setLayoutProperty(l.id, 'visibility', 'none'));
+        // --- GINKGO SVG ICON ---
+        fetch('ginko.svg')
+            .then(response => response.text())
+            .then(svgText => {
+                svgDataUrls['Ginkgo'] = 'data:image/svg+xml;base64,' + btoa(svgText);
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 40;
+                    canvas.height = 40;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, 40, 40);
+                    map.addImage('ginkgo-icon', { width: 40, height: 40, data: ctx.getImageData(0, 0, 40, 40).data }, { sdf: true });
+                };
+                img.src = svgDataUrls['Ginkgo'];
+            });
 
-        // --- 3. ADD LAYERS ---
-        map.addSource('nyc-forestry', { type: 'vector', url: 'mapbox://' + TILESET_ID });
-        map.addLayer({ 'id': 'custom-parks', 'type': 'fill', 'source': 'composite', 'source-layer': 'landuse', 'filter': ['==', 'class', 'park'], 'paint': { 'fill-color': '#1b5e20', 'fill-opacity': 0.3 }, 'layout': { 'visibility': 'visible' } });
-        map.addLayer({ 'id': 'custom-water', 'type': 'fill', 'source': 'composite', 'source-layer': 'water', 'paint': { 'fill-color': '#01579b', 'fill-opacity': 0.4 }, 'layout': { 'visibility': 'visible' } });
-        map.addLayer({ 'id': 'custom-streets', 'type': 'line', 'source': 'composite', 'source-layer': 'road', 'paint': { 'line-color': '#cccccc', 'line-width': ['interpolate', ['linear'], ['zoom'], 11, 0.5, 18, 2] }, 'layout': { 'visibility': 'visible', 'line-join': 'round', 'line-cap': 'round' } });
-        map.addLayer({ 'id': 'custom-buildings', 'type': 'fill', 'source': 'composite', 'source-layer': 'building', 'paint': { 'fill-color': '#d4cfc9', 'fill-opacity': 0.7, 'fill-outline-color': '#999999' }, 'layout': { 'visibility': 'visible' } });
+        // --- PLATANUS SVG ICON ---
+        fetch('platanus.svg')
+            .then(response => response.text())
+            .then(svgText => {
+                svgDataUrls['Platanus'] = 'data:image/svg+xml;base64,' + btoa(svgText);
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 40;
+                    canvas.height = 40;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, 40, 40);
+                    map.addImage('platanus-icon', { width: 40, height: 40, data: ctx.getImageData(0, 0, 40, 40).data }, { sdf: true });
+                };
+                img.src = svgDataUrls['Platanus'];
+            });
+
+        // 1. PARQUES: Gris suave, diferenciado del papel
+        map.addLayer({ 
+            'id': 'custom-parks', 
+            'type': 'fill', 
+            'source': 'composite', 
+            'source-layer': 'landuse', 
+            'filter': ['==', 'class', 'park'], 
+            'paint': { 'fill-color': '#E8EAE6', 'fill-opacity': 1 }, 
+            'layout': { 'visibility': 'visible' } 
+        });
+        
+        // 2. AGUA: Gris azulado "sombreado a lápiz"
+        map.addLayer({ 
+            'id': 'custom-water', 
+            'type': 'fill', 
+            'source': 'composite', 
+            'source-layer': 'water', 
+            'paint': { 'fill-color': '#CAD2D3', 'fill-opacity': 1 }, 
+            'layout': { 'visibility': 'visible' } 
+        });
+        
+        // 3. EDIFICIOS: Estilo "Caja Oscura Semitransparente" (Como la imagen de referencia)
+        map.addLayer({ 
+            'id': 'custom-buildings', 
+            'type': 'fill', 
+            'source': 'composite', 
+            'source-layer': 'building', 
+            'paint': { 
+                // Relleno gris oscuro (#444444)
+                'fill-color': '#444444', 
+                // Semitransparente (60% opacidad)
+                'fill-opacity': 0.6, 
+                // Borde aún más oscuro para definir (#222222)
+                'fill-outline-color': '#222222' 
+            }, 
+            'layout': { 'visibility': 'visible' } 
+        });
 
         const colorExpr = ['case'];
         treeCatalog.forEach(t => {
             colorExpr.push(['in', t.keyword, ['get', COL.SPECIES]]);
             colorExpr.push(t.color);
         });
-        colorExpr.push('#555');
+        colorExpr.push('#888');
 
+        // 4. ARBOLES (PUNTOS) - Cambia de círculo a SVG con el zoom
         map.addLayer({
             'id': 'trees-points',
-            'type': 'circle',
+            'type': 'symbol',
             'source': 'nyc-forestry',
             'source-layer': LAYER_NAME,
-            'paint': {
-                // Radius increases significantly at zoom 14
-                'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 1.5, 14, 3, 18, 9],
-                'circle-color': colorExpr,
-                'circle-opacity': 0.85
+            'layout': {
+                'icon-image': [
+                    'step',
+                    ['zoom'],
+                    'circle-icon', // Zoom < 15: círculo para todos
+                    15, // A partir de zoom 15
+                    [
+                        'case',
+                        ['in', 'Ginkgo', ['get', COL.SPECIES]], 'ginkgo-icon',
+                        ['in', 'Platanus', ['get', COL.SPECIES]], 'platanus-icon',
+                        'circle-icon' // Otros siguen como círculo
+                    ]
+                ],
+                'icon-size': ['interpolate', ['linear'], ['zoom'], 11, 0.3, 14, 0.5, 18, 1.2],
+                'icon-allow-overlap': true, // Mostrar TODOS los árboles
+                'icon-anchor': 'center'
+            },
+            'paint': { 
+                'icon-color': colorExpr,
+                'icon-opacity': 0.8
             }
         });
+        
+        // Crear icono circular genérico para otros árboles
+        const circleCanvas = document.createElement('canvas');
+        circleCanvas.width = 32;
+        circleCanvas.height = 32;
+        const circleCtx = circleCanvas.getContext('2d');
+        circleCtx.fillStyle = '#ffffff';
+        circleCtx.beginPath();
+        circleCtx.arc(16, 16, 12, 0, Math.PI * 2);
+        circleCtx.fill();
+        circleCtx.strokeStyle = '#ffffff';
+        circleCtx.lineWidth = 2;
+        circleCtx.stroke();
+        map.addImage('circle-icon', { width: 32, height: 32, data: circleCtx.getImageData(0, 0, 32, 32).data }, { sdf: true });
 
+        // 5. ARBOLES (3D STICKS)
         map.addLayer({
             'id': 'trees-sticks',
             'type': 'symbol',
@@ -285,9 +399,9 @@
                 'icon-allow-overlap': true,
                 'icon-anchor': 'bottom',
                 'icon-pitch-alignment': 'viewport',
-                'icon-size': ['interpolate', ['linear'], ['get', COL.DBH], 0, 0.1, 50, 1.5]
+                'icon-size': 0.75 
             },
-            'paint': { 'icon-color': colorExpr, 'icon-opacity': 0.9 }
+            'paint': { 'icon-color': colorExpr, 'icon-opacity': 1 }
         });
 
         buildChipGrid();
@@ -334,17 +448,11 @@
 
     function setBorough(boro, btn) {
         currentBorough = boro;
-        
-        // UI Update
         document.querySelectorAll('.b-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        
-        // Strict Filter
         applyMapFilters(); 
 
-        // ZOOM LOGIC: Zoom 14 ensures points are visible (radius 3px)
         const targetZoom = 14; 
-        
         const locations = {
             'Manhattan': { center: [-73.97, 40.78], zoom: targetZoom },
             'Brooklyn':  { center: [-73.95, 40.65], zoom: targetZoom },
@@ -354,18 +462,9 @@
         };
 
         if(locations[boro]) {
-            map.flyTo({ 
-                center: locations[boro].center, 
-                zoom: locations[boro].zoom, 
-                pitch: isIsometric ? 60 : 0 
-            });
+            map.flyTo({ center: locations[boro].center, zoom: locations[boro].zoom, pitch: isIsometric ? 60 : 0 });
         } else {
-            // 'All' resets to high view
-            map.flyTo({ 
-                center: [-73.97, 40.78], 
-                zoom: 11, 
-                pitch: isIsometric ? 60 : 0 
-            });
+            map.flyTo({ center: [-73.97, 40.78], zoom: 11, pitch: isIsometric ? 60 : 0 });
         }
     }
 
@@ -373,7 +472,6 @@
         if (!isTreeLayerOn) return; 
         const filters = ['all']; 
         if (currentBorough !== 'All') filters.push(['==', COL.BOROUGH, currentBorough]);
-        
         if (activeGenera.length > 0) {
             const speciesConditions = ['any'];
             activeGenera.forEach(keyword => speciesConditions.push(['in', keyword, ['get', COL.SPECIES]]));
@@ -381,7 +479,6 @@
         } else {
             filters.push(['==', COL.SPECIES, 'IMPOSSIBLE']); 
         }
-
         map.setFilter('trees-points', filters);
         map.setFilter('trees-sticks', filters);
     }
@@ -401,7 +498,18 @@
             chip.className = 'chip active';
             chip.setAttribute('data-key', t.keyword);
             chip.onclick = () => toggleChip(t.keyword, chip);
-            chip.innerHTML = `<div class="chip-dot" style="background:${t.color}"></div><span>${t.label}</span>`;
+            
+            // Para Ginkgo y Platanus, mostrar SVG; para otros, punto de color
+            let dotHTML = '';
+            if (t.keyword === 'Ginkgo' && svgDataUrls['Ginkgo']) {
+                dotHTML = `<img src="${svgDataUrls['Ginkgo']}" style="width:16px; height:16px; object-fit: contain; flex-shrink: 0;">`;
+            } else if (t.keyword === 'Platanus' && svgDataUrls['Platanus']) {
+                dotHTML = `<img src="${svgDataUrls['Platanus']}" style="width:16px; height:16px; object-fit: contain; flex-shrink: 0;">`;
+            } else {
+                dotHTML = `<div class="chip-dot" style="background:${t.color}"></div>`;
+            }
+            
+            chip.innerHTML = dotHTML + `<span>${t.label}</span>`;
             container.appendChild(chip);
         });
     }
@@ -440,7 +548,6 @@
 
     function setupInteractions() {
         const layers = ['trees-points', 'trees-sticks'];
-        
         layers.forEach(layerID => {
             map.on('mouseenter', layerID, () => map.getCanvas().style.cursor = 'pointer');
             map.on('mouseleave', layerID, () => map.getCanvas().style.cursor = '');
@@ -449,7 +556,6 @@
                 if (!isTreeLayerOn) return;
                 const p = e.features[0].properties;
                 const coords = e.features[0].geometry.coordinates;
-                
                 const species = p[COL.SPECIES] || 'Unknown';
                 const dbh = p[COL.DBH] || 0;
                 const health = p[COL.HEALTH] || 'N/A';
@@ -470,12 +576,12 @@
                                 <img src="${leafUrl}" class="leaf-img">
                                 <div class="leaf-info">
                                     <span style="font-size:10px; color:#888; text-transform:uppercase; font-weight:700">Foliage ID</span>
-                                    <span style="font-size:14px; font-weight:600; color:#000">Specimen View</span>
+                                    <span style="font-size:14px; font-weight:600; color:#333">Specimen View</span>
                                 </div>
                             </div>
                             <div class="data-grid">
-                                <div class="data-box"><span class="data-label">Health</span><span class="data-value" style="color:${health.includes('Good')?'#00e676':'#ffab00'}">${health}</span></div>
-                                <div class="data-box"><span class="data-label">Age</span><span class="data-value">${dbh > 0 ? '~'+Math.round(dbh*4)+'y' : '?'}</span></div>
+                                <div class="data-box"><span class="data-label">Health</span><span class="data-value" style="color:${health.includes('Good')?'#2e7d32':'#ef6c00'}">${health}</span></div>
+                                <div class="data-box"><span class="data-label">Age (Approx)</span><span class="data-value">${dbh > 0 ? '~'+Math.round(dbh*4)+'y' : '?'}</span></div>
                                 <div class="data-box"><span class="data-label">Diameter</span><span class="data-value">${dbh}"</span></div>
                                 <div class="data-box"><span class="data-label">Circumference</span><span class="data-value">${circumference}"</span></div>
                             </div>
@@ -504,7 +610,6 @@
 
         document.getElementById('chk-parks').addEventListener('change', e => map.setLayoutProperty('custom-parks', 'visibility', e.target.checked ? 'visible' : 'none'));
         document.getElementById('chk-water').addEventListener('change', e => map.setLayoutProperty('custom-water', 'visibility', e.target.checked ? 'visible' : 'none'));
-        document.getElementById('chk-streets').addEventListener('change', e => map.setLayoutProperty('custom-streets', 'visibility', e.target.checked ? 'visible' : 'none'));
         document.getElementById('chk-buildings').addEventListener('change', e => map.setLayoutProperty('custom-buildings', 'visibility', e.target.checked ? 'visible' : 'none'));
     }
 </script>
